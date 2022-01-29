@@ -1,0 +1,3 @@
+add_executable(testExpression_exe expression.cpp)
+target_link_libraries(testExpression_exe hint Boost::unit_test_framework)
+add_test(testExpression testExpression_exe)
