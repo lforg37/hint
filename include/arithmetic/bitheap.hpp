@@ -62,7 +62,7 @@ public:
     return {inputs};
   };
 
-  template <SignalType... STS2> friend class BitHeap;
+  template <detail::bitheap::OperationSpec... OS2> friend class BitHeap;
 };
 
 }; // namespace hint

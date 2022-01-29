@@ -1,0 +1,3 @@
+add_executable(testBitIntTools_exe bitint_tests.cpp)
+target_link_libraries(testBitIntTools_exe hint Boost::unit_test_framework)
+add_test(testBitIntTools testBitIntTools_exe)

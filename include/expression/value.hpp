@@ -1,17 +1,15 @@
 #ifndef EXPRESSION_VALUE_HPP
 #define EXPRESSION_VALUE_HPP
 #include <algorithm>
-#include <array>
-#include <bits/ranges_util.h>
+#include <charconv>
 #include <cstdint>
-#include <iterator>
-#include <ranges>
+#include <optional>
 #include <type_traits>
 
 #include <boost/hana.hpp>
 
-#include "extint_tools/manipulation.hpp"
-#include "extint_tools/type_helpers.hpp"
+#include "bitint_tools/bitint_constant.hpp"
+#include "bitint_tools/type_helpers.hpp"
 
 #include "signal.hpp"
 
@@ -23,20 +21,20 @@ template <typename T> constexpr bool isValue = false;
 template <SignalType ST> struct Variable {
 public:
   using signal_t = ST;
-  using storage_t = detail::extint_base_t<ST::Width, ST::IsSigned>;
+  using storage_t = detail::bitint_base_t<ST::Width, ST::IsSigned>;
   const storage_t val;
 };
 
 template <SignalType ST> constexpr bool isValue<Variable<ST>> = true;
 
 /// Represents a value known at compile time
-template <SignalType ST, detail::extint_base_t<ST::width, ST::isSigned> Val>
+template <SignalType ST, detail::bitint_base_t<ST::width, ST::isSigned> Val>
 struct Constant {
-  using storage_t = detail::extint_base_t<ST::width, ST::isSigned>;
+  using storage_t = detail::bitint_base_t<ST::width, ST::isSigned>;
   static constexpr storage_t val = Val;
 };
 
-template <SignalType ST, detail::extint_base_t<ST::width, ST::isSigned> Val>
+template <SignalType ST, detail::bitint_base_t<ST::width, ST::isSigned> Val>
 constexpr bool isValue<Constant<ST, Val>> = true;
 
 template <typename T>
@@ -44,36 +42,36 @@ concept ValueType = isValue<T>;
 
 template <ValueType T> constexpr bool isValueConstant = false;
 
-template <SignalType ST, detail::extint_base_t<ST::Width, ST::IsSigned> Val>
+template <SignalType ST, detail::bitint_base_t<ST::Width, ST::IsSigned> Val>
 constexpr bool isValueConstant<Constant<ST, Val>> = true;
 
 namespace litterals {
+namespace hana = boost::hana;
 namespace detail {
-constexpr uint8_t getCharVal(char ch) {
-  auto cInRange = [](char c, char LowerBound, char UpperBound) constexpr {
+template <char C> struct CharHolder {
+  constexpr bool operator==(const char val) const { return val == C; }
+  constexpr bool operator!=(const char val) const { return val != C; }
+  
+  static constexpr char c = C;
+
+  constexpr char get() const { return C; }
+};
+
+template <char C> static consteval uint8_t getCharVal() {
+  auto cInRange = [](char c, char LowerBound, char UpperBound) consteval {
     return (c >= LowerBound && c <= UpperBound);
   };
 
-  char lowercase = cInRange(ch, 'A', 'Z') ? ch - 'A' + 'a' : ch;
+  constexpr char lowercase = cInRange(C, 'A', 'Z') ? C - 'A' + 'a' : C;
+  static_assert(cInRange(lowercase, '0', '9') || cInRange(lowercase, 'a', 'z'),
+                "Incorrect symbol for digit");
 
-  if (cInRange(lowercase, '0', '9')) {
+  if constexpr (cInRange(lowercase, '0', '9')) {
     return lowercase - '0';
   } else {
     return lowercase - 'a' + 10;
   }
 }
-
-template <unsigned int W> consteval auto clz(unsigned _ExtInt(W) val) {
-  size_t toTrim = 0;
-  for (auto mask = _ExtInt(W){1} << (W - 1); mask != 1; mask >>= 1) {
-    if (val & mask) {
-      break;
-    } else {
-      ++toTrim;
-    }
-  }
-  return toTrim;
-};
 
 template <size_t Radix, size_t RadixBitWidth> struct Base {
 private:
@@ -81,8 +79,10 @@ public:
   static constexpr size_t radix = Radix;
   static constexpr size_t radixBitWidth = RadixBitWidth;
   static_assert(Radix <= 36);
-  static constexpr uint8_t getCharValue(char ch) {
-    return getCharVal(ch);
+  template <char C> static consteval uint8_t getCharValue(CharHolder<C>) {
+    constexpr auto val = getCharVal<C>();
+    static_assert(val < Radix, "Incorrect digit for current radix");
+    return val;
   }
 };
 
@@ -95,70 +95,81 @@ using Octal = Base<8, 3>;
 using Decimal = Base<10, 4>;
 using Hexadecimal = Base<16, 4>;
 
-template <int LsbWeight> consteval auto toConstant(auto val) {
-  using T = decltype(val);
-  constexpr auto fitted = toFit<T::value>();
-  constexpr auto width = extIntWidth<typename T::value_type>;
-  return Constant<Signal<false, width, LsbWeight>, fitted>{};
-}
-
-template <typename Base, char... CharSeq>
-consteval auto parseInt() {
-  constexpr auto nDigits = sizeof...(CharSeq);
-  using return_type = unsigned _ExtInt(nDigits * Base::radixBitWidth);
-  return_type acc = 0;
-  for (auto c : std::array{CharSeq...}) {
-    if (c == '\'')
-      continue;
-    acc *= static_cast<return_type>(Base::radix);
-    acc += static_cast<return_type>(Base::getCharValue(c));
-  }
-  return acc;
+template <typename Base> constexpr auto parseInt(auto in0) {
+  constexpr auto in = decltype(in0){};
+  constexpr auto outWidth = hana::length(in) * Base::radixBitWidth;
+  using untrimmed_ret_t = unsigned _ExtInt(outWidth);
+  constexpr untrimmed_ret_t zero{0};
+  auto parse = [](untrimmed_ret_t state, auto ch) constexpr -> untrimmed_ret_t {
+    return state * static_cast<untrimmed_ret_t>(Base::radix) +
+           static_cast<untrimmed_ret_t>(Base::getCharValue(ch));
+  };
+  constexpr auto untrimmed = hana::fold_left(in, zero, parse);
+  return fitted_c<untrimmed>;
 };
 
-// Skip two prefix char
-template <char, char, char... CharSeq> consteval auto parseHex() {
-  return parseInt<Hexadecimal, CharSeq...>();
+// Hex value can be either integers or floats
+consteval auto parseHex(auto in0) {
+  constexpr auto in = decltype(in0){};
+  constexpr auto noPrefix = hana::drop_front_exactly(in,  hana::size_c<2>);
+  constexpr auto floatMarker = [](auto &&ch) {
+    char c = ch.get();
+    return c == '.' || c == 'p' || c == 'P';
+  };
+
+  static_assert(hana::count_if(noPrefix, floatMarker) == 0,
+                "Hex float are not handled yet");
+  constexpr auto resVal = parseInt<Hexadecimal>(noPrefix);
+  return Constant<Signal<false, resVal.width, 0>, resVal.value>{};
 }
 
-template <char... CharSeq> consteval auto parseDec() {
-  return parseInt<Decimal, CharSeq...>();
+// Hex value can be either integers or floats
+consteval auto parseDec(auto in0) {
+  constexpr auto in = decltype(in0){};
+  auto floatMarker = [](auto &&ch) {
+    char c = ch.get();
+    return c == '.' || c == 'e' || c == 'E';
+  };
+
+  static_assert(hana::count_if(in, floatMarker) == 0,
+                "Decimal float are not handled yet");
+  constexpr auto resVal = parseInt<Decimal>(in);
+  return Constant<Signal<false, resVal.width, 0>, resVal.value>{};
 }
 
-template <char, char, char... CharSeq> consteval auto parseBin() {
-  return parseInt<Binary, CharSeq...>();
+template<typename Base, size_t Drop>
+consteval auto parseSimpleIntegerRadix(auto in) {
+  constexpr auto inCp = decltype(in){};
+  constexpr auto noPrefix = hana::drop_front_exactly(inCp, hana::size_c<Drop>);
+  constexpr auto resVal = parseInt<Base>(noPrefix);
+  return Constant<Signal<false, resVal.width, 0>, resVal.value>{};
 }
-
-template <char, char... CharSeq> consteval auto parseOct() {
-  return parseInt<Octal, CharSeq...>();
-}
-
 } // namespace detail
 
 template <char... CharSeq> constexpr auto operator"" _cst() {
-  constexpr std::array chars{CharSeq...};
-  constexpr auto len = chars.size();
-  constexpr bool firstIsZero = chars[0] == '0';
+  constexpr auto unfilteredCharTuple = hana::make_tuple(detail::CharHolder<CharSeq>{}...);
+  constexpr auto charTuple = hana::filter(unfilteredCharTuple, [](auto c){
+    constexpr bool isNotNoise = decltype(c)::c != '\'';
+    return hana::integral_c<int, isNotNoise>;
+  });
+  constexpr auto len = sizeof...(CharSeq);
+  constexpr bool firstIsZero = hana::front(charTuple) == '0';
   if constexpr (firstIsZero) {
     if constexpr (len == 1) {
-      return Constant<Signal<false, 1, 0>, 0>{};
+      return Constant<Signal<false, 1, 0>, 0> {};
     } else {
-      constexpr char c2 = chars[1];
+      constexpr char c2 = hana::at(charTuple, hana::size_c<1>).get();
       static_assert(c2 != '.', "Decimal floats are not yet handled");
       if constexpr (c2 == 'x' || c2 == 'X') {
-        constexpr auto ret = detail::parseHex<CharSeq...>();
-        return detail::toConstant<0>(toFit<ret>());
+        return detail::parseHex(charTuple);
       } else if constexpr (c2 == 'b' || c2 == 'B') {
-        constexpr auto ret = detail::parseBin<CharSeq...>();
-        return detail::toConstant<0>(toFit<ret>());
+        return detail::parseSimpleIntegerRadix<detail::Binary, 2>(charTuple);
       } else {
-        constexpr auto ret = detail::parseOct<CharSeq...>();
-        return detail::toConstant<0>(toFit<ret>());
+        return detail::parseSimpleIntegerRadix<detail::Octal, 1>(charTuple);
       }
     }
   } else {
-    constexpr auto ret = detail::parseDec<CharSeq...>();
-    return detail::toConstant<0>(toFit<ret>());
+    detail::parseDec(charTuple);
   }
 };
 

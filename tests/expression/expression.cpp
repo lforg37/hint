@@ -1,3 +1,4 @@
+#include <type_traits>
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE ExpressionTests
 
@@ -7,6 +8,9 @@
 
 BOOST_AUTO_TEST_CASE(TestUDL) {
     using namespace hint::litterals;
-    auto b = 0X17'5_cst;
-    BOOST_REQUIRE(false);
+    constexpr unsigned _ExtInt(18) val{0x3ACBD};  
+    auto b = 0X3ACBD_cst;
+    static_assert(std::is_same_v<decltype(b), hint::Constant<
+      hint::Signal<false, 18, 0>, val
+    >>, "Wrong type");
 }
