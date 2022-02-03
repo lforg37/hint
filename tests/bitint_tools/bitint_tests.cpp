@@ -1,4 +1,5 @@
 #include <boost/test/tools/old/interface.hpp>
+#include <iostream>
 #include <type_traits>
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE BitIntToolsTests
@@ -9,6 +10,7 @@
 
 BOOST_AUTO_TEST_CASE(TestFit) {
   constexpr unsigned _ExtInt(32) testVal{0x3BACD};
-  constexpr auto cstVal = hint::fitted_c<testVal>;
-  static_assert(cstVal.width == 18, "Incorrect fitting");
+  constexpr auto cst = hint::fitted_c<testVal>;
+  static_assert(cst.width == 18, "Incorrect fitting");
+  static_assert(cst.value == 0x3bacd, "Incorrect value");
 }

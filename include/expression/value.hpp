@@ -15,35 +15,81 @@
 
 namespace hint {
 
-template <typename T> constexpr bool isValue = false;
+template <typename T> constexpr bool isValueType = false;
+
+template <bool IsSigned, int MsbWeight, int LsbWeight> struct Value {
+  static_assert(MsbWeight >= LsbWeight);
+  static constexpr int msbWeight = MsbWeight;
+  static constexpr int lsbWeight = LsbWeight;
+  static constexpr unsigned int width = MsbWeight - LsbWeight + 1;
+  static constexpr bool isSigned = IsSigned;
+};
 
 /// Represent a value not known at compile time
-template <SignalType ST> struct Variable {
-public:
-  using signal_t = ST;
-  using storage_t = detail::bitint_base_t<ST::Width, ST::IsSigned>;
-  const storage_t val;
+template <bool IsSigned, int MsbWeight, int LsbWeight, SignalType ST>
+requires widthsMatch<ST, MsbWeight - LsbWeight + 1>
+struct Variable : public Value<IsSigned, MsbWeight, LsbWeight> {
+  using repr_t = ST;
+  const repr_t value;
 };
 
-template <SignalType ST> constexpr bool isValue<Variable<ST>> = true;
+template <bool IsSigned, int MsbWeight, int LsbWeight,
+          SignalType ST>
+constexpr bool isValueType<Variable<IsSigned, MsbWeight, LsbWeight, ST>> = true;
 
-/// Represents a value known at compile time
-template <SignalType ST, detail::bitint_base_t<ST::width, ST::isSigned> Val>
-struct Constant {
-  using storage_t = detail::bitint_base_t<ST::width, ST::isSigned>;
-  static constexpr storage_t val = Val;
-};
+template <typename T> constexpr bool isVariableType = false;
 
-template <SignalType ST, detail::bitint_base_t<ST::width, ST::isSigned> Val>
-constexpr bool isValue<Constant<ST, Val>> = true;
+template <bool IsSigned, int MsbWeight, int LsbWeight,
+          SignalType ST>
+constexpr bool isVariableType<Variable<IsSigned, MsbWeight, LsbWeight, ST>> = true;
 
 template <typename T>
-concept ValueType = isValue<T>;
+concept VariableType = isVariableType<T>;
+
+/// Represents a value known at compile time
+template <bool IsSigned, int MsbWeight, int LsbWeight,
+          detail::bitint_base_t<IsSigned, MsbWeight - LsbWeight + 1> Repr>
+struct Constant : public Value<IsSigned, MsbWeight, LsbWeight> {
+  using repr_t = detail::bitint_base_t<IsSigned, MsbWeight - LsbWeight + 1>;
+  static constexpr repr_t repr = Repr;
+  using repr_as_type_t = BitIntConstant<repr_t, Repr>;
+};
+
+template <bool IsSigned, int MsbWeight, int LsbWeight,
+          detail::bitint_base_t<IsSigned, MsbWeight - LsbWeight + 1> Repr>
+constexpr bool isValueType<Constant<IsSigned, MsbWeight, LsbWeight, Repr>> = true;
+
+template<typename T>
+constexpr bool isConstantType = false;
+
+template <bool IsSigned, int MsbWeight, int LsbWeight,
+          detail::bitint_base_t<IsSigned, MsbWeight - LsbWeight + 1> Repr>
+constexpr bool isConstantType<Constant<IsSigned, MsbWeight, LsbWeight, Repr>> = true;
+
+template <typename T>
+concept ConstantType = isConstantType<T>;
+
+template <typename T>
+concept ValueType = isValueType<T>;
 
 template <ValueType T> constexpr bool isValueConstant = false;
 
-template <SignalType ST, detail::bitint_base_t<ST::Width, ST::IsSigned> Val>
-constexpr bool isValueConstant<Constant<ST, Val>> = true;
+template <bool IsSigned, int MsbWeight, int LsbWeight,
+          detail::bitint_base_t<IsSigned, MsbWeight - LsbWeight + 1> Repr>
+constexpr bool isValueConstant<Constant<IsSigned, MsbWeight, LsbWeight, Repr>> =
+    true;
+
+namespace detail {
+template <int ExtraShift, BitIntConstT T> constexpr auto getFittedConst(T) {
+  constexpr auto fitted = fitted_c<T::value>;
+  constexpr auto tz = ctz<fitted.value>();
+  constexpr auto shifted = fitted.value >> tz;
+  using new_val_t = detail::bitint_base_t<fitted.isSigned, fitted.width - tz>;
+  constexpr auto newval = static_cast<new_val_t>(shifted);
+  return Constant<fitted.isSigned, fitted.width - 1 + ExtraShift,
+                  tz + ExtraShift, newval>{};
+}
+} // namespace detail
 
 namespace litterals {
 namespace hana = boost::hana;
@@ -51,7 +97,7 @@ namespace detail {
 template <char C> struct CharHolder {
   constexpr bool operator==(const char val) const { return val == C; }
   constexpr bool operator!=(const char val) const { return val != C; }
-  
+
   static constexpr char c = C;
 
   constexpr char get() const { return C; }
@@ -100,7 +146,7 @@ template <typename Base> constexpr auto parseInt(auto in0) {
   constexpr auto outWidth = hana::length(in) * Base::radixBitWidth;
   using untrimmed_ret_t = unsigned _ExtInt(outWidth);
   constexpr untrimmed_ret_t zero{0};
-  auto parse = [](untrimmed_ret_t state, auto ch) constexpr -> untrimmed_ret_t {
+  auto parse = [](untrimmed_ret_t state, auto ch) constexpr->untrimmed_ret_t {
     return state * static_cast<untrimmed_ret_t>(Base::radix) +
            static_cast<untrimmed_ret_t>(Base::getCharValue(ch));
   };
@@ -111,7 +157,7 @@ template <typename Base> constexpr auto parseInt(auto in0) {
 // Hex value can be either integers or floats
 consteval auto parseHex(auto in0) {
   constexpr auto in = decltype(in0){};
-  constexpr auto noPrefix = hana::drop_front_exactly(in,  hana::size_c<2>);
+  constexpr auto noPrefix = hana::drop_front_exactly(in, hana::size_c<2>);
   constexpr auto floatMarker = [](auto &&ch) {
     char c = ch.get();
     return c == '.' || c == 'p' || c == 'P';
@@ -120,7 +166,7 @@ consteval auto parseHex(auto in0) {
   static_assert(hana::count_if(noPrefix, floatMarker) == 0,
                 "Hex float are not handled yet");
   constexpr auto resVal = parseInt<Hexadecimal>(noPrefix);
-  return Constant<Signal<false, resVal.width, 0>, resVal.value>{};
+  return ::hint::detail::getFittedConst<0>(resVal);
 }
 
 // Hex value can be either integers or floats
@@ -134,21 +180,22 @@ consteval auto parseDec(auto in0) {
   static_assert(hana::count_if(in, floatMarker) == 0,
                 "Decimal float are not handled yet");
   constexpr auto resVal = parseInt<Decimal>(in);
-  return Constant<Signal<false, resVal.width, 0>, resVal.value>{};
+  return ::hint::detail::getFittedConst<0>(resVal);
 }
 
-template<typename Base, size_t Drop>
+template <typename Base, size_t Drop>
 consteval auto parseSimpleIntegerRadix(auto in) {
   constexpr auto inCp = decltype(in){};
   constexpr auto noPrefix = hana::drop_front_exactly(inCp, hana::size_c<Drop>);
   constexpr auto resVal = parseInt<Base>(noPrefix);
-  return Constant<Signal<false, resVal.width, 0>, resVal.value>{};
+  return ::hint::detail::getFittedConst<0>(resVal);
 }
 } // namespace detail
 
 template <char... CharSeq> constexpr auto operator"" _cst() {
-  constexpr auto unfilteredCharTuple = hana::make_tuple(detail::CharHolder<CharSeq>{}...);
-  constexpr auto charTuple = hana::filter(unfilteredCharTuple, [](auto c){
+  constexpr auto unfilteredCharTuple =
+      hana::make_tuple(detail::CharHolder<CharSeq>{}...);
+  constexpr auto charTuple = hana::filter(unfilteredCharTuple, [](auto c) {
     constexpr bool isNotNoise = decltype(c)::c != '\'';
     return hana::integral_c<int, isNotNoise>;
   });
@@ -156,7 +203,7 @@ template <char... CharSeq> constexpr auto operator"" _cst() {
   constexpr bool firstIsZero = hana::front(charTuple) == '0';
   if constexpr (firstIsZero) {
     if constexpr (len == 1) {
-      return Constant<Signal<false, 1, 0>, 0> {};
+      return Constant<false, 1, 0, 0>{};
     } else {
       constexpr char c2 = hana::at(charTuple, hana::size_c<1>).get();
       static_assert(c2 != '.', "Decimal floats are not yet handled");

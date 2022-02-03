@@ -21,6 +21,19 @@ namespace detail {
     }
     return i;
   }
+
+  template<auto Val> constexpr auto ctz() {
+    // TODO: can be replaced by efficient recursive ctz
+    constexpr auto n = bitIntWidth<decltype(Val)>;
+    using mask_t = unsigned _ExtInt(n);
+    auto Mask = mask_t{1};
+    std::size_t i;
+    for (i = 0 ; i < n ; ++i) {
+      if (Mask & Val) {break;}
+      Mask <<= 1;
+    }
+    return i;
+  }
 }
 
 template<BitIntT T, T Val>
@@ -28,6 +41,7 @@ struct BitIntConstant {
   static constexpr T value = Val;
   using value_type = T;
   static constexpr unsigned int width = bitIntWidth<T>;
+  static constexpr bool isSigned = signedType<T>;
 };
 
 template<auto T>
@@ -51,9 +65,17 @@ consteval auto toFit() {
     using ret_val_t = unsigned _ExtInt(1);
     return BitIntConstant<ret_val_t , ret_val_t{0}>{};
   } else {
-    constexpr auto n = bitIntWidth<decltype(Val)> - detail::clz<Val>(); 
-    using ret_val_t = detail::bitint_base_t<n, false>;
-    return BitIntConstant<ret_val_t, static_cast<ret_val_t>(Val)>{};
+    constexpr auto n = bitIntWidth<decltype(Val)>;
+    constexpr bool signedtype = signedType<decltype(Val)>;
+    if constexpr (signedtype && Val < 0) {
+      constexpr auto lo = detail::clz<~Val>();
+      using ret_val_t = detail::bitint_base_t<true, n-lo+1>;
+      return BitIntConstant<ret_val_t, static_cast<ret_val_t>(Val)>{}; 
+    } else {
+      constexpr auto lz = detail::clz<Val>();
+      using ret_val_t = detail::bitint_base_t<false, n-lz>;
+      return BitIntConstant<ret_val_t, static_cast<ret_val_t>(Val)>{};
+    }
   }
 }
 

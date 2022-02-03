@@ -7,10 +7,9 @@
 #include "expression/value.hpp"
 
 BOOST_AUTO_TEST_CASE(TestUDL) {
-    using namespace hint::litterals;
-    constexpr unsigned _ExtInt(18) val{0x3ACBD};  
-    auto b = 0X3ACBD_cst;
-    static_assert(std::is_same_v<decltype(b), hint::Constant<
-      hint::Signal<false, 18, 0>, val
-    >>, "Wrong type");
+  using namespace hint::litterals;
+  constexpr unsigned _ExtInt(18) val{0x3ACBD};
+  auto b = 0X3ACBD_cst;
+  static_assert(std::is_same_v<decltype(b), hint::Constant<false, 17, 0, val>>,
+                "Wrong type");
 }

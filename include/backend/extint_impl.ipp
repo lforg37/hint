@@ -89,7 +89,7 @@ public:
   template <unsigned int N> using us_wrapper_helper = ExtIntWrapper<N, false>;
   template <unsigned int N>
   using signed_wrapper_helper = ExtIntWrapper<N, true>;
-  static constexpr unsigned int Width = W;
+  static constexpr unsigned int width = W;
 
 private:
   storage_type _val;
