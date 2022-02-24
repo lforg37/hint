@@ -12,6 +12,8 @@ set(CMAKE_CXX_EXTENSIONS ON)
 #set(CPACK_PACKAGE_NAME "libhint")
 #set(CPACK_PACKAGE_VENDOR "(Florent de Dinechin, Luc Forget, Yohann Uguen)@[Citi Lab - INSA Lyon - INRIA]  David Thomas@Imperial College London")
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
 set(INCLUDE_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_library(hint INTERFACE)
@@ -30,14 +32,13 @@ install(
 install(FILES ${PROJECT_NAME}Config.cmake DESTINATION lib/cmake/${PROJECT_NAME})
 install(EXPORT ${PROJECT_NAME}Targets FILE ${PROJECT_NAME}Targets.cmake DESTINATION lib/cmake/${PROJECT_NAME})
 
-set(VIVADO_INCLUDES ${VIVADO_INCLUDES} CACHE PATH "Path to vivado ap_int includes")
+find_package(APInt)
 
-if(EXISTS ${VIVADO_INCLUDES}/ap_int.h)
-    set(VIVADO_BACKEND ON CACHE BOOL "Is vivado backend available" FORCE)
+if(APInt_FOUND)
     add_library(HINT_VIVADO_BACKEND INTERFACE IMPORTED GLOBAL)
-    target_include_directories(HINT_VIVADO_BACKEND INTERFACE ${VIVADO_INCLUDES})
     target_compile_definitions(HINT_VIVADO_BACKEND INTERFACE VIVADO_BACKEND)
-    message(STATUS "Using ${VIVADO_INCLUDES} as vivado include directory")
+	target_link_libraries(HINT_VIVADO_BACKEND INTERFACE hint APInt::APInt)
+	message(STATUS "ap_int found ${APInt_INCLUDE_DIR}")
 else()
     set(VIVADO_BACKEND OFF CACHE BOOL "Is vivado backend available" FORCE)
     message(STATUS "Vivado include path unset please set VIVADO_INCLUDES if you intend to use Vivado HLS backend" )
@@ -88,13 +89,6 @@ if(BUILD_HINT_UNIT_TEST)
 		target_compile_definitions(testCatapultBackend_exe PRIVATE CATAPULT_BACKEND)
 		add_test(testCatapultBackend testCatapultBackend_exe)
 	endif()
-
-		#if(GMPTARGET-OK)
-		#	add_executable(testGMPBackend_exe tests/backend/gmp_main.cpp)
-		#	target_link_libraries(testGMPBackend_exe hint ${Boost_LIBRARIES} ${GMP} ${GMPXX})
-		#	target_compile_definitions(testGMPBackend_exe PRIVATE FASTSIM_BACKEND)
-		#	add_test(testGMPBackend testGMPBackend_exe)
-		#endif()
 
 	if(VIVADO_BACKEND OR INTEL_BACKEND)
 		add_executable(testPrimitives_exe tests/primitives/lzoc_shifter_and_shifter_sticky_main.cpp)
