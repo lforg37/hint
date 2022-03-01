@@ -9,10 +9,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
+include(FetchContent)
+
 #set(CPACK_PACKAGE_NAME "libhint")
 #set(CPACK_PACKAGE_VENDOR "(Florent de Dinechin, Luc Forget, Yohann Uguen)@[Citi Lab - INSA Lyon - INRIA]  David Thomas@Imperial College London")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+find_package(Boost 1.63.0 REQUIRED) 
+
 
 set(INCLUDE_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -22,6 +27,7 @@ target_include_directories(
 	$<BUILD_INTERFACE:${INCLUDE_ROOT}>
 	$<INSTALL_INTERFACE:include/hint>
 )
+target_link_libraries(hint INTERFACE Boost::boost)
 
 install(DIRECTORY ${INCLUDE_ROOT}/ DESTINATION include/hint FILES_MATCHING PATTERN "*.hpp" PATTERN "*.ipp")
 install(
@@ -57,64 +63,14 @@ if(EXISTS ${CATAPULT_INCLUDES}/ac_int.h)
     set(CATAPULT_BACKEND ON)
     message(STATUS "Using ${CATAPULT_INCLUDES} as CatapultHLS include directory")
 else()
-        message(STATUS "CatapultHLS include path unset please set CATAPULT_INCLUDES if you intend to use Catapult HLS backend" )
+    message(STATUS "CatapultHLS include path unset please set CATAPULT_INCLUDES if you intend to use Catapult HLS backend" )
 endif()
 
 OPTION(BUILD_HINT_UNIT_TEST "Build the operators unit tests")
 if(BUILD_HINT_UNIT_TEST)
-	find_package(Boost 1.55 REQUIRED COMPONENTS unit_test_framework)
-
-	enable_testing()
-
-	if(VIVADO_BACKEND)
-		add_executable(testVivadoBackend_exe tests/backend/vivado_main.cpp tests/backend/vivado_table.cpp)
-		target_link_libraries(testVivadoBackend_exe hint ${Boost_LIBRARIES} HINT_VIVADO_BACKEND)
-		target_include_directories(testVivadoBackend_exe PRIVATE ${Boost_INCLUDE_DIR})
-		add_test(testVivadoBackend testVivadoBackend_exe)
-	endif()
-	if(INTEL_BACKEND)
-		add_executable(testIntelBackend_exe tests/backend/intel_main.cpp tests/backend/intel_table.cpp)
-		target_link_libraries(testIntelBackend_exe hint ${Boost_LIBRARIES})
-		target_include_directories(testIntelBackend_exe PRIVATE ${Boost_INCLUDE_DIR})
-		target_include_directories(testIntelBackend_exe PRIVATE ${INTEL_INCLUDES})
-		target_compile_definitions(testIntelBackend_exe PRIVATE INTEL_BACKEND)
-		add_test(testIntelBackend testIntelBackend_exe)
-	endif()
-
-	if(CATAPULT_BACKEND)
-		add_executable(testCatapultBackend_exe tests/backend/catapult_main.cpp)
-		target_link_libraries(testCatapultBackend_exe hint ${Boost_LIBRARIES})
-		target_include_directories(testCatapultBackend_exe PRIVATE ${Boost_INCLUDE_DIR})
-		target_include_directories(testCatapultBackend_exe PRIVATE ${CATAPULT_INCLUDES})
-		target_compile_definitions(testCatapultBackend_exe PRIVATE CATAPULT_BACKEND)
-		add_test(testCatapultBackend testCatapultBackend_exe)
-	endif()
-
-	if(VIVADO_BACKEND OR INTEL_BACKEND)
-		add_executable(testPrimitives_exe tests/primitives/lzoc_shifter_and_shifter_sticky_main.cpp)
-        target_link_libraries(testPrimitives_exe PRIVATE hint ${Boost_LIBRARIES})
-        target_include_directories(testPrimitives_exe PRIVATE ${Boost_INCLUDE_DIR})
-        if(VIVADO_BACKEND)
-            target_link_libraries(testPrimitives_exe PRIVATE HINT_VIVADO_BACKEND)
-        endif()
-        if(INTEL_BACKEND)
-            target_include_directories(testPrimitives_exe PRIVATE ${INTEL_INCLUDES})
-            target_compile_definitions(testPrimitives_exe PRIVATE INTEL_BACKEND)
-        endif()
-            add_test(testPrimitives testPrimitives_exe)
-	endif()
-
-	if(EXTINT_BACKEND)
-		add_executable(testExtIntBackend_exe tests/backend/extint_main tests/backend/extint_arithmetic tests/backend/extint_logic)
-		target_link_libraries(testExtIntBackend_exe hint ${Boost_LIBRARIES})
-		target_include_directories(testExtIntBackend_exe PRIVATE ${Boost_INCLUDE_DIR})
-		target_compile_definitions(testExtIntBackend_exe PRIVATE EXTINT_BACKEND)
-		add_test(testExtIntBackend testExtIntBackend_exe)
-	endif()
-
-	add_executable(testArithmetic_exe tests/arithmetic/arithmetic_main.cpp tests/arithmetic/tiling.cpp)
-	target_link_libraries(testArithmetic_exe hint ${Boost_LIBRARIES})
-	add_test(testArithmetic testArithmetic_exe)
+    enable_testing()
+    find_package(Boost 1.55 REQUIRED COMPONENTS unit_test_framework)
+    add_subdirectory(tests)
 endif()
 
 #include(CPack)

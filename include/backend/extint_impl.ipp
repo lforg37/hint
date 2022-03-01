@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "extint_tools/type_helpers.hpp"
+
 #include "primitives/backwards.hpp"
 
 #include "tools/functools.hpp"
@@ -18,18 +20,6 @@
 using namespace std;
 
 namespace hint {
-namespace detail {
-template <unsigned int W, bool is_signed> struct ExtIntBaseType {};
-
-template <unsigned int W> struct ExtIntBaseType<W, true> {
-  using type = _ExtInt(W);
-};
-
-template <unsigned int W> struct ExtIntBaseType<W, false> {
-  using type = unsigned _ExtInt(W);
-};
-
-} // namespace detail
 
 template <unsigned int W, bool is_signed> class ExtIntWrapper;
 
@@ -99,7 +89,7 @@ public:
   template <unsigned int N> using us_wrapper_helper = ExtIntWrapper<N, false>;
   template <unsigned int N>
   using signed_wrapper_helper = ExtIntWrapper<N, true>;
-  static constexpr unsigned int Width = W;
+  static constexpr unsigned int width = W;
 
 private:
   storage_type _val;
