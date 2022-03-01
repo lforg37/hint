@@ -2,19 +2,19 @@
 
 #include "hint.hpp"
 
-using hint::ExtIntWrapper;
+using hint::BitIntWrapper;
 
 #define STATIC_COMPARE(ref, val, msg)                                          \
   static_assert((ref == val).unravel(), msg);
 
 BOOST_AUTO_TEST_CASE(TestCompOP) {
   constexpr unsigned int width = 9;
-  using TestType = ExtIntWrapper<width, false>;
+  using TestType = BitIntWrapper<width, false>;
   constexpr unsigned int upper_limit = 1 << width;
   for (unsigned int i = 0; i < upper_limit; ++i) {
-    TestType wrapped_i{static_cast<unsigned _ExtInt(width)>(i)};
+    TestType wrapped_i{static_cast<unsigned _BitInt(width)>(i)};
     for (unsigned int j = 0; j < i; ++j) {
-      TestType wrapped_j{static_cast<unsigned _ExtInt(width)>(j)};
+      TestType wrapped_j{static_cast<unsigned _BitInt(width)>(j)};
       BOOST_REQUIRE((wrapped_i >= wrapped_j).unravel());
       BOOST_REQUIRE((wrapped_i > wrapped_j).unravel());
       BOOST_REQUIRE(!(wrapped_j >= wrapped_i).unravel());
@@ -36,7 +36,7 @@ BOOST_AUTO_TEST_CASE(TestCompOP) {
 
 BOOST_AUTO_TEST_CASE(TestCompOPWidth1) {
   constexpr unsigned int width = 1;
-  using TestType = ExtIntWrapper<width, false>;
+  using TestType = BitIntWrapper<width, false>;
   constexpr TestType one{1}, zero{0};
 
   // ==
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(TestCompOPWidth1) {
 }
 
 BOOST_AUTO_TEST_CASE(TestModularAddSubUS) {
-  using TestType = ExtIntWrapper<5, false>;
+  using TestType = BitIntWrapper<5, false>;
   constexpr TestType all_one{0x1F}, zero{0}, small_of{0x1E}, one{1};
 
   // Modular add
@@ -118,9 +118,9 @@ BOOST_AUTO_TEST_CASE(TestModularAddSubUS) {
 }
 
 BOOST_AUTO_TEST_CASE(TestAddCarry) {
-  using TestType = ExtIntWrapper<5, false>;
-  using ExtResType = ExtIntWrapper<6, false>;
-  using CarryType = ExtIntWrapper<1, false>;
+  using TestType = BitIntWrapper<5, false>;
+  using ExtResType = BitIntWrapper<6, false>;
+  using CarryType = BitIntWrapper<1, false>;
   constexpr TestType all_one{0x1F}, zero{0}, small_of{0x1E}, one{1};
   constexpr CarryType cin{1}, nocin{0};
 
@@ -148,8 +148,8 @@ BOOST_AUTO_TEST_CASE(TestAddCarry) {
 }
 
 BOOST_AUTO_TEST_CASE(TestAddCarryWidth1US) {
-  constexpr ExtIntWrapper<1, false> one{1}, zero{false};
-  using ExtResType = ExtIntWrapper<2, false>;
+  constexpr BitIntWrapper<1, false> one{1}, zero{false};
+  using ExtResType = BitIntWrapper<2, false>;
 #define HINT_EXTINT_TEST_AC(op1, op2, resnocarry, rescarry)                    \
   STATIC_COMPARE(ExtResType{resnocarry}, op1.addWithCarry(op2, zero),          \
                  "addWithCarry() Error")                                       \
@@ -163,10 +163,11 @@ BOOST_AUTO_TEST_CASE(TestAddCarryWidth1US) {
 #undef HINT_EXTINT_TEST_AC
 }
 
+#ifdef BITINT_BACKEND_SIGNED_W1
 BOOST_AUTO_TEST_CASE(TestAddCarryWidth1Signed) {
-  constexpr ExtIntWrapper<1, true> one{-1}, zero{false};
-  using ExtResType = ExtIntWrapper<2, true>;
-  constexpr ExtIntWrapper<1, false> cin{1}, nocin{0};
+  constexpr BitIntWrapper<1, true> one{-1}, zero{false};
+  using ExtResType = BitIntWrapper<2, true>;
+  constexpr BitIntWrapper<1, false> cin{1}, nocin{0};
 #define HINT_EXTINT_TEST_AC(op1, op2, resnocarry, rescarry)                    \
   STATIC_COMPARE(ExtResType{resnocarry}, op1.addWithCarry(op2, nocin),         \
                  "addWithCarry() Error")                                       \
@@ -179,9 +180,10 @@ BOOST_AUTO_TEST_CASE(TestAddCarryWidth1Signed) {
 
 #undef HINT_EXTINT_TEST_AC
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(TestProduct) { 
-    constexpr ExtIntWrapper<4, false> all_one{0xF}, zero{0}, one{1}, half{6};
-    using resType = ExtIntWrapper<8, false>;
+    constexpr BitIntWrapper<4, false> all_one{0xF}, zero{0}, one{1}, half{6};
+    using resType = BitIntWrapper<8, false>;
       
  }

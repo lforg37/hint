@@ -20,6 +20,6 @@ using namespace std;
 #include "backend/gmp_impl.ipp"
 #endif
 
-#if defined(EXTINT_BACKEND)
+#if defined(BITINT_BACKEND)
 #include "backend/extint_impl.ipp"
 #endif

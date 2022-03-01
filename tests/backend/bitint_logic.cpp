@@ -4,10 +4,10 @@
 #include "backend/extint_impl.ipp"
 #include "hint.hpp"
 
-using hint::ExtIntWrapper;
+using hint::BitIntWrapper;
 
 BOOST_AUTO_TEST_CASE(TestInvert) {
-  constexpr ExtIntWrapper<7, false> a{0}, b{0b1111111}, c{0b1010101},
+  constexpr BitIntWrapper<7, false> a{0}, b{0b1111111}, c{0b1010101},
       d{0b0101010};
   static_assert((a.invert() == b).unravel(), "Invert error");
   static_assert((b.invert() == a).unravel(), "Invert error");
@@ -16,13 +16,13 @@ BOOST_AUTO_TEST_CASE(TestInvert) {
 }
 
 BOOST_AUTO_TEST_CASE(TestInvertWidth_1) {
-  constexpr ExtIntWrapper<1, false> one{1}, zero{0};
+  constexpr BitIntWrapper<1, false> one{1}, zero{0};
   static_assert((one.invert() == zero).unravel(), "One inversion error");
   static_assert((zero.invert() == one).unravel(), "Zero inversion error");
 }
 
 BOOST_AUTO_TEST_CASE(TestBinaryLogic) {
-  using TestType = ExtIntWrapper<4, false>;
+  using TestType = BitIntWrapper<4, false>;
   constexpr TestType halffirst{0b1100}, halfmiddle{0b0110};
   static_assert(
       ((halffirst.bitwise_and(halfmiddle)) == TestType{0b0100}).unravel(),
@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(TestBinaryLogic) {
 }
 
 BOOST_AUTO_TEST_CASE(TestBinaryLogicWidth1) {
-  using TestType = ExtIntWrapper<1, false>;
+  using TestType = BitIntWrapper<1, false>;
   constexpr TestType one{0b1}, zero{0b0};
 
   // bitwise_and()
@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(TestBinaryLogicWidth1) {
 }
 
 BOOST_AUTO_TEST_CASE(Backward) {
-  using TestTypeEven = ExtIntWrapper<7, false>;
-  constexpr TestTypeEven a{0b11101101}, b{0b10110111};
+  using TestTypeEven = BitIntWrapper<7, false>;
+  constexpr TestTypeEven a{0b1101101}, b{0b1011011};
   static_assert((a.backwards()==b).unravel(), "Inversion error");
 }

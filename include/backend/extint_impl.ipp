@@ -3,13 +3,14 @@
 
 #include "config.hpp"
 
+#include <bit>
 #include <cstdint>
 #include <functional>
 #include <limits>
 #include <type_traits>
 #include <utility>
 
-#include "extint_tools/type_helpers.hpp"
+#include "bitint_tools/type_helpers.hpp"
 
 #include "primitives/backwards.hpp"
 
@@ -21,51 +22,51 @@ using namespace std;
 
 namespace hint {
 
-template <unsigned int W, bool is_signed> class ExtIntWrapper;
+template <unsigned int W, bool is_signed> class BitIntWrapper;
 
 template <unsigned int W1, unsigned int W2, bool is_signed>
-constexpr ExtIntWrapper<
+constexpr BitIntWrapper<
     Arithmetic_Prop<W1, W2, is_signed, is_signed>::_prodSize, is_signed>
-operator*(ExtIntWrapper<W1, is_signed> const lhs,
-          ExtIntWrapper<W2, is_signed> const rhs) {
+operator*(BitIntWrapper<W1, is_signed> const lhs,
+          BitIntWrapper<W2, is_signed> const rhs) {
   return {lhs._val * rhs._val};
 }
 
 template <unsigned int shiftedSize, bool isShiftedSigned,
           unsigned int shifterSize>
-constexpr ExtIntWrapper<shiftedSize, isShiftedSigned>
-operator>>(ExtIntWrapper<shiftedSize, isShiftedSigned> const lhs,
-           ExtIntWrapper<shifterSize, false> const rhs) {
+constexpr BitIntWrapper<shiftedSize, isShiftedSigned>
+operator>>(BitIntWrapper<shiftedSize, isShiftedSigned> const lhs,
+           BitIntWrapper<shifterSize, false> const rhs) {
   return {lhs._val >> rhs._val};
 }
 
 template <unsigned int shiftedSize, bool isShiftedSigned,
           unsigned int shifterSize>
-constexpr ExtIntWrapper<shiftedSize, isShiftedSigned>
-operator<<(ExtIntWrapper<shiftedSize, isShiftedSigned> const lhs,
-           ExtIntWrapper<shifterSize, false> const rhs) {
+constexpr BitIntWrapper<shiftedSize, isShiftedSigned>
+operator<<(BitIntWrapper<shiftedSize, isShiftedSigned> const lhs,
+           BitIntWrapper<shifterSize, false> const rhs) {
   return {lhs._val << rhs._val};
 }
 
 template <unsigned int W, bool is_signed>
-constexpr ExtIntWrapper<W + 1, is_signed>
-operator+(ExtIntWrapper<W, is_signed> const lhs,
-          ExtIntWrapper<W, is_signed> const rhs) {
+constexpr BitIntWrapper<W + 1, is_signed>
+operator+(BitIntWrapper<W, is_signed> const lhs,
+          BitIntWrapper<W, is_signed> const rhs) {
   return {lhs._val + rhs._val};
 }
 
 template <unsigned int W, bool is_signed>
-constexpr ExtIntWrapper<W + 1, is_signed>
-operator-(ExtIntWrapper<W, is_signed> const lhs,
-          ExtIntWrapper<W, is_signed> const rhs) {
+constexpr BitIntWrapper<W + 1, is_signed>
+operator-(BitIntWrapper<W, is_signed> const lhs,
+          BitIntWrapper<W, is_signed> const rhs) {
   return {lhs._val - rhs._val};
 }
 
 #define HINT_EXTINTIMP_BINARY_OP_IMP(SYMBOL)                                   \
   template <unsigned int W, bool is_signed>                                    \
-  constexpr ExtIntWrapper<W, false> operator SYMBOL(                           \
-      ExtIntWrapper<W, is_signed> const lhs,                                  \
-      ExtIntWrapper<W, is_signed> const rhs) {                                \
+  constexpr BitIntWrapper<W, false> operator SYMBOL(                           \
+      BitIntWrapper<W, is_signed> const lhs,                                  \
+      BitIntWrapper<W, is_signed> const rhs) {                                \
     return {lhs._val SYMBOL rhs._val};                                         \
   }
 
@@ -75,20 +76,20 @@ HINT_EXTINTIMP_BINARY_OP_IMP(^)
 
 #undef HINT_EXTINTIMP_BINARY_OP_IMP
 
-template <unsigned int W, bool is_signed> class ExtIntWrapper {
+template <unsigned int W, bool is_signed> class BitIntWrapper {
 public:
-  typedef ExtIntWrapper<W, is_signed> type;
-  typedef typename detail::ExtIntBaseType<W, is_signed>::type storage_type;
+  typedef BitIntWrapper<W, is_signed> type;
+  typedef typename detail::BitIntBaseType<W, is_signed>::type storage_type;
   template <unsigned int N>
-  using storage_helper = typename detail::ExtIntBaseType<N, is_signed>::type;
+  using storage_helper = typename detail::BitIntBaseType<N, is_signed>::type;
   template <unsigned int N>
-  using us_storage_helper = typename detail::ExtIntBaseType<N, false>::type;
+  using us_storage_helper = typename detail::BitIntBaseType<N, false>::type;
   template <unsigned int N>
-  using signed_storage_helper = typename detail::ExtIntBaseType<N, true>::type;
-  template <unsigned int N> using wrapper_helper = ExtIntWrapper<N, is_signed>;
-  template <unsigned int N> using us_wrapper_helper = ExtIntWrapper<N, false>;
+  using signed_storage_helper = typename detail::BitIntBaseType<N, true>::type;
+  template <unsigned int N> using wrapper_helper = BitIntWrapper<N, is_signed>;
+  template <unsigned int N> using us_wrapper_helper = BitIntWrapper<N, false>;
   template <unsigned int N>
-  using signed_wrapper_helper = ExtIntWrapper<N, true>;
+  using signed_wrapper_helper = BitIntWrapper<N, true>;
   static constexpr unsigned int width = W;
 
 private:
@@ -111,34 +112,34 @@ private:
     if constexpr (width == 1) {
       return in;
     } else {
-      constexpr auto c2pow = Static_Val<width>::_c2pow;
+      constexpr auto c2pow = std::bit_ceil(width);
       constexpr auto low_width = c2pow >> 1;
       constexpr auto high_width = width - low_width;
       constexpr auto low_mask = ~us_storage_helper<low_width>{0};
-      constexpr auto high_mask = (~us_storage_helper<high_width>{0})
+      auto high_mask = us_storage_helper<width>{~us_storage_helper<high_width>{0}}
                                  << low_width;
-      us_storage_helper<high_width> high{(in & high_mask) >> low_width};
-      us_storage_helper<low_width> low{in & low_mask};
-      auto rlow = rec_backward(low);
-      auto rhigh = rec_backward(high);
-      us_storage_helper<width> new_high{rlow << high_width};
+      auto high = static_cast<us_storage_helper<high_width>>((in & high_mask) >> low_width);
+      auto low = static_cast<us_storage_helper<low_width>>(in & low_mask);
+      auto rlow = rec_backward<low_width>(low);
+      auto rhigh = rec_backward<high_width>(high);
+      auto new_high = us_storage_helper<width>{rlow} << high_width;
       us_storage_helper<width> res{new_high | rhigh};
       return res;
     }
   }
 
 public:
-  constexpr ExtIntWrapper() : _val{0} {}
+  constexpr BitIntWrapper() : _val{0} {}
 
-  constexpr ExtIntWrapper(storage_type const val) : _val{val} {}
+  constexpr BitIntWrapper(storage_type const val) : _val{val} {}
 
   /**
    * @brief get the bit at index idx
    *
    * @tparam idx
-   * @return ExtIntWrapper<1, false>
+   * @return BitIntWrapper<1, false>
    */
-  template <unsigned int idx> constexpr ExtIntWrapper<1, false> get() const {
+  template <unsigned int idx> constexpr BitIntWrapper<1, false> get() const {
     static_assert(idx < W, "Checking bit outside of range");
     if constexpr (W == 1) {
       return {_val};
@@ -152,10 +153,10 @@ public:
    *
    * @tparam high index of the highest bit to keep in the slice
    * @tparam low index of the lowest bit to keep in the slice
-   * @return ExtIntWrapper<high - low + 1, false>
+   * @return BitIntWrapper<high - low + 1, false>
    */
   template <unsigned int high, unsigned int low>
-  constexpr ExtIntWrapper<high - low + 1, false> slice() const {
+  constexpr BitIntWrapper<high - low + 1, false> slice() const {
     static_assert(high >= low and high < W,
                   "Trying to slice outside of bounds");
     if constexpr (high == low) {
@@ -169,12 +170,12 @@ public:
     return (get<idx>()._val != us_storage_helper<1>{0});
   }
 
-  constexpr ExtIntWrapper<W, false> invert() const {
+  constexpr BitIntWrapper<W, false> invert() const {
     return us_storage_helper<W>{~_val};
   }
 
 #define FORWARD_BITWISE_OP(OP, func_name)                                      \
-  constexpr ExtIntWrapper<W, false> func_name(type const rhs) const {          \
+  constexpr BitIntWrapper<W, false> func_name(type const rhs) const {          \
     return {_val OP rhs._val};                                                 \
   }
 
@@ -267,7 +268,7 @@ public:
    */
   template <unsigned int Wrhs, bool isSignedRhs>
   constexpr us_wrapper_helper<W + Wrhs>
-  concatenate(ExtIntWrapper<Wrhs, isSignedRhs> const val) const {
+  concatenate(BitIntWrapper<Wrhs, isSignedRhs> const val) const {
     constexpr auto retSize = W + Wrhs;
     auto leftmost = rightpad<retSize>();
     auto rightmost = val.template leftpad<retSize>();
@@ -293,7 +294,7 @@ public:
     // cin._val plugged in the carry chain entry.
     storage_helper<W + 1> ext{_val}, extop2{op2._val}, extcarry{cin._val};
     if constexpr (false && W == 1 and is_signed) {
-      // TODO: remove once signed ExtInt(1) is valid
+      // TODO: remove once signed BitInt(1) is valid
       return {extcarry - extop2 - ext};
     } else {
       return {ext + extop2 + extcarry};
@@ -307,7 +308,7 @@ public:
     // No evident clever instantiation of such an op : should be deprecated once
     // a full expression framework is in place
     if constexpr (false && W == 1 and is_signed) {
-      // TODO: remove once signed ExtInt(1) is valid
+      // TODO: remove once signed BitInt(1) is valid
       return {extcarry + extop2 - ext};
     } else {
       return {ext - extop2 + extcarry};
@@ -321,7 +322,7 @@ public:
     // No evident clever instantiation of such an op : should be deprecated once
     // a full expression framework is in place
     if constexpr (false && W == 1 and is_signed) {
-      // TODO: remove once signed ExtInt(1) is valid
+      // TODO: remove once signed BitInt(1) is valid
       return {extborrow - extop2 - ext};
     } else {
       return {ext + extop2 - extborrow};
@@ -361,22 +362,22 @@ public:
   }
 
   constexpr us_wrapper_helper<W> backwards() const {
-    return {rec_backward(_val)};
+    return {rec_backward<W>(_val)};
   }
 
   template <unsigned int W2>
   constexpr wrapper_helper<
       Arithmetic_Prop<W, W2, is_signed, is_signed>::_prodSize>
-  operator*(ExtIntWrapper<W2, is_signed> const rhs) const {
+  operator*(BitIntWrapper<W2, is_signed> const rhs) const {
     return {_val * rhs.unravel()};
   }
 
   constexpr storage_type const unravel() const { return _val; }
 
-  friend constexpr ExtIntWrapper<W + 1, is_signed> operator+
+  friend constexpr BitIntWrapper<W + 1, is_signed> operator+
       <W, is_signed>(type const lhs, type const rhs);
 
-  friend constexpr ExtIntWrapper<W + 1, is_signed> operator-
+  friend constexpr BitIntWrapper<W + 1, is_signed> operator-
       <W, is_signed>(type const lhs, type const rhs);
 
 #define HINT_EXTINT_BINARY_FRIENDOP(SYM)                                       \
@@ -390,20 +391,20 @@ public:
 
   template <unsigned int ShiftedSize, bool shiftedSigned,
             unsigned int shifterSize>
-  friend constexpr ExtIntWrapper<ShiftedSize, shiftedSigned>
-  operator>>(ExtIntWrapper<ShiftedSize, shiftedSigned> const lhs,
-             ExtIntWrapper<shifterSize, false> const rhs);
+  friend constexpr BitIntWrapper<ShiftedSize, shiftedSigned>
+  operator>>(BitIntWrapper<ShiftedSize, shiftedSigned> const lhs,
+             BitIntWrapper<shifterSize, false> const rhs);
 
   template <unsigned int ShiftedSize, bool shiftedSigned,
             unsigned int shifterSize>
-  friend constexpr ExtIntWrapper<ShiftedSize, shiftedSigned>
-  operator<<(ExtIntWrapper<ShiftedSize, shiftedSigned> const lhs,
-             ExtIntWrapper<shifterSize, false> const rhs);
+  friend constexpr BitIntWrapper<ShiftedSize, shiftedSigned>
+  operator<<(BitIntWrapper<ShiftedSize, shiftedSigned> const lhs,
+             BitIntWrapper<shifterSize, false> const rhs);
 
-  template <unsigned int N, bool val> friend class ExtIntWrapper;
+  template <unsigned int N, bool val> friend class BitIntWrapper;
 };
 
-template <> struct Config_Values<ExtIntWrapper> {
+template <> struct Config_Values<BitIntWrapper> {
   constexpr static unsigned int shift_group_by = 2;
 };
 

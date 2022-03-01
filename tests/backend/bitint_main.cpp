@@ -10,7 +10,7 @@
 
 #include "hint.hpp"
 
-using hint::ExtIntWrapper;
+using hint::BitIntWrapper;
 
 namespace {
 
@@ -19,25 +19,25 @@ using int2type = std::integral_constant<unsigned int, t>;
 }
 
 BOOST_AUTO_TEST_CASE(TestInstantiation) {
-  constexpr ExtIntWrapper<12, false> test{};
-  constexpr unsigned _ExtInt(12) zero{0};
+  constexpr BitIntWrapper<12, false> test{};
+  constexpr unsigned _BitInt(12) zero{0};
   static_assert(test.unravel() == zero, "Error with default general Ctor");
 }
 
 BOOST_AUTO_TEST_CASE(TestInstantiationWidth1) {
-  constexpr ExtIntWrapper<1, false> test{0};
+  constexpr BitIntWrapper<1, false> test{0};
   static_assert(!test.unravel(), "Error with default w=1 Ctor");
 }
 
 BOOST_AUTO_TEST_CASE(TestNonEmptyCtor) {
-  ExtIntWrapper<12, false> test{0b111111111111};
+  BitIntWrapper<12, false> test{0b111111111111};
   BOOST_REQUIRE_EQUAL(static_cast<int>(test.unravel()), 0b111111111111);
 };
 
 
 BOOST_AUTO_TEST_CASE(TestGet) {
   constexpr auto in_val = 0b01101;
-  constexpr ExtIntWrapper<5, false> in{in_val};
+  constexpr BitIntWrapper<5, false> in{in_val};
   constexpr auto a = in.template get<0>();
   constexpr auto b = in.template get<1>();
   constexpr auto c = in.template get<2>();
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(TestGet) {
 }
 
 BOOST_AUTO_TEST_CASE(TestGetWidth1) {
-  constexpr ExtIntWrapper<1, false> one{1}, zero{0};
+  constexpr BitIntWrapper<1, false> one{1}, zero{0};
   static_assert((one.template get<0>() == one).unravel(), "get for w=1 error");
   static_assert((zero.template get<0>() == zero).unravel(),
                 "get for w=1 error");
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(TestSlice) {
   using six = int2type<6>;
 
   constexpr uint8_t inval = 0b110010;
-  constexpr ExtIntWrapper<6, false> in{inval};
+  constexpr BitIntWrapper<6, false> in{inval};
 
   constexpr auto slicer = [in]<typename SW, typename SS>(SW, SS) {
     constexpr auto slice_width = SW::value;
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(TestSlice) {
     constexpr auto slice_width = SW::value;
     constexpr auto slice_start = SS::value;
     constexpr uint8_t mask_in{((1 << slice_width) - 1) << slice_start};
-    return ExtIntWrapper<slice_width, false>{(inval & mask_in) >> slice_start};
+    return BitIntWrapper<slice_width, false>{(inval & mask_in) >> slice_start};
   };
 
   static_assert((slicer(one{}, zero{}) == constructed(one{}, zero{})).unravel(),
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(TestSlice) {
 }
 
 BOOST_AUTO_TEST_CASE(TestSliceWidth1) {
-  constexpr ExtIntWrapper<1, false> one{1}, zero{0};
+  constexpr BitIntWrapper<1, false> one{1}, zero{0};
   static_assert((one.template slice<0, 0>() == one).unravel(),
                 "slice for w=1 error");
   static_assert((zero.template slice<0, 0>() == zero).unravel(),
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(TestSliceWidth1) {
 }
 
 BOOST_AUTO_TEST_CASE(TestSequence) {
-  using TestType = ExtIntWrapper<9, false>;
+  using TestType = BitIntWrapper<9, false>;
   constexpr TestType allOne{0b111111111}, allZero{0};
   static_assert((TestType::generateSequence({1}) == allOne).unravel(),
                 "Generate zero sequence error");
@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(TestSequence) {
 }
 
 BOOST_AUTO_TEST_CASE(TestSequenceWidth1) {
-  using TestType = ExtIntWrapper<1, false>;
+  using TestType = BitIntWrapper<1, false>;
   constexpr TestType allOne{0b1}, allZero{0};
   static_assert((TestType::generateSequence({1}) == allOne).unravel(),
                 "Generate zero sequence error");
