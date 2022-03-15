@@ -1,12 +1,8 @@
 #ifndef BITINT_TOOLS_TYPE_HELPERS_HPP
 #define BITINT_TOOLS_TYPE_HELPERS_HPP
 
-#include <boost/hana.hpp>
-
 namespace hint {
 namespace detail {
-
-namespace hana = boost::hana;
 
 template <unsigned int W, bool is_signed> struct BitIntBaseType {};
 
