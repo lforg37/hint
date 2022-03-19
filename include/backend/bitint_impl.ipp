@@ -65,8 +65,8 @@ operator-(BitIntWrapper<W, is_signed> const lhs,
 #define HINT_EXTINTIMP_BINARY_OP_IMP(SYMBOL)                                   \
   template <unsigned int W, bool is_signed>                                    \
   constexpr BitIntWrapper<W, false> operator SYMBOL(                           \
-      BitIntWrapper<W, is_signed> const lhs,                                  \
-      BitIntWrapper<W, is_signed> const rhs) {                                \
+      BitIntWrapper<W, is_signed> const lhs,                                   \
+      BitIntWrapper<W, is_signed> const rhs) {                                 \
     return {lhs._val SYMBOL rhs._val};                                         \
   }
 
@@ -200,11 +200,11 @@ public:
 #undef FORWARD_CMP_OP
 
   constexpr us_wrapper_helper<W> as_unsigned() const {
-    return {reinterpret_cast<us_storage_helper<W>>(_val)};
+    return {static_cast<us_storage_helper<W>>(_val)};
   }
 
   constexpr signed_wrapper_helper<W> as_signed() const {
-    return {reinterpret_cast<signed_storage_helper<W>>(_val)};
+    return {static_cast<signed_storage_helper<W>>(_val)};
   }
 
   /**
@@ -333,7 +333,7 @@ public:
     if constexpr (false && W == 1) {
       return {op2._val != _val};
     } else {
-      return {_val + op2._val};
+      return static_cast<us_wrapper_helper<W>>(_val + op2._val);
     }
   }
 

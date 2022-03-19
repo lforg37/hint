@@ -1,7 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/unit_test_suite.hpp>
 
-#include "backend/extint_impl.ipp"
+#include "backend/bitint_impl.ipp"
 #include "hint.hpp"
 
 using hint::BitIntWrapper;

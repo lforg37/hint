@@ -21,5 +21,5 @@ using namespace std;
 #endif
 
 #if defined(BITINT_BACKEND)
-#include "backend/extint_impl.ipp"
+#include "backend/bitint_impl.ipp"
 #endif
