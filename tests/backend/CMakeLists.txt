@@ -20,7 +20,7 @@ if(CATAPULT_BACKEND)
 endif()
 
 if(BITINT_BACKEND)
-    add_executable(testBitIntBackend_exe bitint_main bitint_arithmetic bitint_logic)
+    add_executable(testBitIntBackend_exe bitint_main.cpp bitint_arithmetic.cpp bitint_logic.cpp)
     target_link_libraries(testBitIntBackend_exe hint Boost::unit_test_framework HINT_BITINT_BACKEND)
     add_test(testBitIntBackend testBitIntBackend_exe)
 endif()

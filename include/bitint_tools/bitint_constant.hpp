@@ -44,11 +44,8 @@ struct BitIntConstant {
   static constexpr bool isSigned = signedType<T>;
 };
 
-template<auto T>
-constexpr bool bitInt_c = false;
-
-template<BitIntT T, T Val>
-constexpr BitIntConstant<T, Val> bitInt_c<Val>{};
+template<auto Val>
+constexpr BitIntConstant<decltype(Val), Val> bitInt_c{};
 
 template<typename T>
 constexpr bool isBitIntConstant = false;
@@ -79,11 +76,8 @@ consteval auto toFit() {
   }
 }
 
-template<auto T>
-constexpr bool fitted_c = false;
-
-template<BitIntT T, T Val>
-constexpr auto fitted_c<Val> = toFit<Val>();
+template<auto Val>
+constexpr auto fitted_c = toFit<Val>();
     
 } // namespace hint
 
